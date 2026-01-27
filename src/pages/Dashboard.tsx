@@ -17,7 +17,7 @@ const actionCards = [
     title: "Upload",
     description: "Upload medical images and documents",
     icon: Upload,
-    href: "#",
+    href: "/xray-annotation",
   },
   {
     id: "view",

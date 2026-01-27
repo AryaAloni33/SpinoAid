@@ -100,60 +100,10 @@ export default function Dashboard() {
 
       <main className="container px-4 py-6 md:px-6 lg:py-8">
         {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground md:text-3xl">
-              Welcome back, Doctor
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Here's what's happening with your patients today.
-            </p>
-          </div>
+        <div className="flex justify-end mb-6">
           <MedicalDropdownButton items={actionsMenuItems} variant="primary">
             Quick Actions
           </MedicalDropdownButton>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-          {stats.map((stat) => (
-            <MedicalCard key={stat.title} variant="default" padding="md" className="hover-lift">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {stat.title}
-                  </p>
-                  <p className="text-2xl font-bold text-foreground mt-1">
-                    {stat.value}
-                  </p>
-                  <div className="flex items-center gap-1 mt-2">
-                    <TrendingUp
-                      className={`h-3 w-3 ${
-                        stat.changeType === "positive"
-                          ? "text-success"
-                          : "text-destructive"
-                      }`}
-                    />
-                    <span
-                      className={`text-xs font-medium ${
-                        stat.changeType === "positive"
-                          ? "text-success"
-                          : "text-destructive"
-                      }`}
-                    >
-                      {stat.change}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      from last week
-                    </span>
-                  </div>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <stat.icon className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-            </MedicalCard>
-          ))}
         </div>
 
         {/* Content Grid */}

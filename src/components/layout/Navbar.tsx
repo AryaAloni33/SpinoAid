@@ -1,0 +1,72 @@
+import { useTheme } from "@/components/ThemeProvider";
+import { Sun, Moon, Activity, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+
+interface NavbarProps {
+  onLogout?: () => void;
+}
+
+export function Navbar({ onLogout }: NavbarProps) {
+  const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    onLogout?.();
+    navigate("/");
+  };
+
+  return (
+    <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
+        {/* Logo */}
+        <div
+          className="flex items-center gap-2.5 cursor-pointer"
+          onClick={() => navigate("/dashboard")}
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+            <Activity className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="text-lg font-semibold text-foreground">
+            MedConnect
+          </span>
+        </div>
+
+        {/* Right side actions */}
+        <div className="flex items-center gap-2">
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-lg",
+              "text-muted-foreground hover:text-foreground",
+              "hover:bg-muted transition-colors duration-200",
+              "focus-ring"
+            )}
+            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          >
+            {theme === "light" ? (
+              <Moon className="h-5 w-5" />
+            ) : (
+              <Sun className="h-5 w-5" />
+            )}
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            className={cn(
+              "flex h-10 items-center gap-2 rounded-lg px-3",
+              "text-muted-foreground hover:text-foreground",
+              "hover:bg-muted transition-colors duration-200",
+              "focus-ring"
+            )}
+          >
+            <LogOut className="h-5 w-5" />
+            <span className="hidden sm:inline text-sm font-medium">Logout</span>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}

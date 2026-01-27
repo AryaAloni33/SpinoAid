@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import PatientDetails from "./pages/PatientDetails";
+import XRayAnnotation from "./pages/XRayAnnotation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,10 +20,11 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/patient/:patientId" element={<PatientDetails />} />
-            <Route path="*" element={<NotFound />} />
+          <Route path="/" element={<Auth />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/patient/:patientId" element={<PatientDetails />} />
+          <Route path="/xray-annotation" element={<XRayAnnotation />} />
+          <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

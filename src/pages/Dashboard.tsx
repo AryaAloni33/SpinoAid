@@ -45,8 +45,9 @@ export default function Dashboard() {
               variant="elevated"
               padding="lg"
               className={cn(
-                "cursor-pointer hover-lift group",
-                "hover:border-primary/50 transition-all duration-300"
+                "cursor-pointer hover-lift group floating-card",
+                "hover:border-primary/50 transition-all duration-300",
+                "bg-card/95"
               )}
               onClick={() => navigate(card.href)}
             >

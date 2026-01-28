@@ -188,74 +188,130 @@
     @apply bg-destructive/10 text-destructive border-destructive/20;
   }
 
-  /* Animated background blobs */
+  /* Animated background container */
   .animated-bg {
     @apply fixed inset-0 overflow-hidden pointer-events-none -z-10;
   }
 
+  /* Moving gradient background */
+  .animated-gradient {
+    @apply absolute inset-0;
+    background: linear-gradient(
+      135deg,
+      hsl(168 50% 96%) 0%,
+      hsl(200 40% 95%) 25%,
+      hsl(180 35% 97%) 50%,
+      hsl(210 30% 96%) 75%,
+      hsl(168 45% 95%) 100%
+    );
+    background-size: 400% 400%;
+    animation: gradient-shift 20s ease infinite;
+  }
+
+  .dark .animated-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(210 25% 8%) 0%,
+      hsl(200 30% 10%) 25%,
+      hsl(180 25% 9%) 50%,
+      hsl(220 25% 11%) 75%,
+      hsl(210 25% 8%) 100%
+    );
+    background-size: 400% 400%;
+  }
+
+  /* Animated blobs - more visible */
   .animated-blob {
-    @apply absolute rounded-full opacity-30 blur-3xl;
+    @apply absolute rounded-full blur-3xl;
     will-change: transform;
   }
 
   .blob-1 {
-    @apply w-96 h-96 -top-48 -left-48;
-    background: hsl(var(--primary) / 0.15);
-    animation: blob-float-1 25s ease-in-out infinite;
+    @apply w-[500px] h-[500px] -top-20 -left-20 opacity-40;
+    background: hsl(168 70% 45% / 0.25);
+    animation: blob-float-1 18s ease-in-out infinite;
   }
 
   .blob-2 {
-    @apply w-80 h-80 top-1/4 -right-40;
-    background: hsl(168 50% 60% / 0.12);
-    animation: blob-float-2 30s ease-in-out infinite;
+    @apply w-[400px] h-[400px] top-1/3 -right-20 opacity-35;
+    background: hsl(200 60% 55% / 0.2);
+    animation: blob-float-2 22s ease-in-out infinite;
   }
 
   .blob-3 {
-    @apply w-72 h-72 bottom-1/4 left-1/4;
-    background: hsl(180 40% 50% / 0.1);
-    animation: blob-float-3 35s ease-in-out infinite;
+    @apply w-[350px] h-[350px] bottom-1/4 left-1/3 opacity-30;
+    background: hsl(180 50% 50% / 0.18);
+    animation: blob-float-3 25s ease-in-out infinite;
   }
 
   .blob-4 {
-    @apply w-64 h-64 -bottom-32 right-1/4;
-    background: hsl(var(--primary) / 0.1);
-    animation: blob-float-4 28s ease-in-out infinite;
+    @apply w-[450px] h-[450px] -bottom-20 right-1/4 opacity-35;
+    background: hsl(168 65% 40% / 0.22);
+    animation: blob-float-4 20s ease-in-out infinite;
   }
 
+  /* Dark mode blobs - softer glow */
   .dark .blob-1 {
-    background: hsl(var(--primary) / 0.08);
+    background: hsl(168 60% 50% / 0.15);
+    @apply opacity-50;
   }
 
   .dark .blob-2 {
-    background: hsl(168 50% 40% / 0.06);
+    background: hsl(200 50% 45% / 0.12);
+    @apply opacity-45;
   }
 
   .dark .blob-3 {
-    background: hsl(180 40% 35% / 0.05);
+    background: hsl(180 45% 40% / 0.1);
+    @apply opacity-40;
   }
 
   .dark .blob-4 {
-    background: hsl(var(--primary) / 0.06);
+    background: hsl(168 55% 45% / 0.14);
+    @apply opacity-45;
   }
 
   /* Respect reduced motion */
   @media (prefers-reduced-motion: reduce) {
-    .animated-blob {
+    .animated-blob,
+    .animated-gradient {
       animation: none !important;
     }
   }
 }
 
-/* Blob floating animations - very slow and subtle */
+/* Moving gradient animation */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 100% 25%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 0% 75%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Blob floating animations - more noticeable movement */
 @keyframes blob-float-1 {
   0%, 100% {
     transform: translate(0, 0) scale(1);
   }
-  33% {
-    transform: translate(30px, 20px) scale(1.05);
+  25% {
+    transform: translate(60px, 40px) scale(1.1);
   }
-  66% {
-    transform: translate(-20px, 30px) scale(0.95);
+  50% {
+    transform: translate(30px, 80px) scale(0.95);
+  }
+  75% {
+    transform: translate(-40px, 50px) scale(1.05);
   }
 }
 
@@ -263,14 +319,11 @@
   0%, 100% {
     transform: translate(0, 0) scale(1);
   }
-  25% {
-    transform: translate(-25px, 15px) scale(1.03);
+  33% {
+    transform: translate(-50px, 30px) scale(1.08);
   }
-  50% {
-    transform: translate(-10px, -20px) scale(0.97);
-  }
-  75% {
-    transform: translate(20px, -10px) scale(1.02);
+  66% {
+    transform: translate(-30px, -50px) scale(0.92);
   }
 }
 
@@ -279,7 +332,7 @@
     transform: translate(0, 0) scale(1);
   }
   50% {
-    transform: translate(25px, -25px) scale(1.04);
+    transform: translate(70px, -60px) scale(1.12);
   }
 }
 
@@ -287,10 +340,10 @@
   0%, 100% {
     transform: translate(0, 0) scale(1);
   }
-  40% {
-    transform: translate(-30px, -15px) scale(0.96);
+  30% {
+    transform: translate(-60px, -40px) scale(0.9);
   }
-  80% {
-    transform: translate(15px, 20px) scale(1.02);
+  70% {
+    transform: translate(40px, 50px) scale(1.08);
   }
 }

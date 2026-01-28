@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { MedicalCard } from "@/components/medical/MedicalCard";
+import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { Users, Upload, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +33,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <AnimatedBackground />
       <Navbar />
 
       <main className="container px-4 py-12 md:px-6 lg:py-16">

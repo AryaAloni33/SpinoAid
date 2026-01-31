@@ -20,6 +20,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Import radiograph images
+import radiographChestPA from "@/assets/radiograph-chest-pa.jpg";
+import radiographChestLateral from "@/assets/radiograph-chest-lateral.jpg";
+import radiographHand from "@/assets/radiograph-hand.jpg";
+import radiographSpineMRI from "@/assets/radiograph-spine-mri.jpg";
+
 // Mock patient data
 const patientData = {
   id: "P-1001",
@@ -77,31 +83,31 @@ const reports = [
   },
 ];
 
-// Placeholder medical image URLs (using neutral placeholder images)
+// Radiograph images using imported assets
 const radiographs = [
   {
     id: 1,
     title: "Chest X-Ray (PA)",
     date: "Jan 20, 2026",
-    url: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400&h=400&fit=crop",
+    url: radiographChestPA,
   },
   {
     id: 2,
     title: "Chest X-Ray (Lateral)",
     date: "Jan 20, 2026",
-    url: "https://images.unsplash.com/photo-1516549655169-df83a0774514?w=400&h=400&fit=crop",
+    url: radiographChestLateral,
   },
   {
     id: 3,
     title: "Hand X-Ray",
     date: "Dec 15, 2025",
-    url: "https://images.unsplash.com/photo-1530497610245-94d3c16cda28?w=400&h=400&fit=crop",
+    url: radiographHand,
   },
   {
     id: 4,
     title: "Spine MRI",
     date: "Nov 28, 2025",
-    url: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&h=400&fit=crop",
+    url: radiographSpineMRI,
   },
 ];
 

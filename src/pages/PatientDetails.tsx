@@ -13,10 +13,6 @@ import { MedicalTable } from "@/components/medical/MedicalTable";
 import {
   ArrowLeft,
   User,
-  Phone,
-  Mail,
-  MapPin,
-  Calendar,
   FileText,
   Download,
   Eye,
@@ -220,59 +216,32 @@ export default function PatientDetails() {
         {/* Tab Content */}
         <div className="animate-fade-in">
           {activeTab === "info" && (
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Personal Information */}
-              <MedicalCard variant="default" padding="md">
-                <MedicalCardHeader>
-                  <MedicalCardTitle>Personal Information</MedicalCardTitle>
-                </MedicalCardHeader>
-                <MedicalCardContent className="space-y-4">
-                  <InfoRow
-                    icon={<Calendar className="h-4 w-4" />}
-                    label="Date of Birth"
-                    value={patientData.dateOfBirth}
-                  />
-                  <InfoRow
-                    icon={<User className="h-4 w-4" />}
-                    label="Blood Type"
-                    value={patientData.bloodType}
-                  />
-                  <InfoRow
-                    icon={<Phone className="h-4 w-4" />}
-                    label="Phone"
-                    value={patientData.phone}
-                  />
-                  <InfoRow
-                    icon={<Mail className="h-4 w-4" />}
-                    label="Email"
-                    value={patientData.email}
-                  />
-                  <InfoRow
-                    icon={<MapPin className="h-4 w-4" />}
-                    label="Address"
-                    value={patientData.address}
-                  />
-                </MedicalCardContent>
-              </MedicalCard>
-
-              {/* Medical Information */}
-              <MedicalCard variant="default" padding="md">
-                <MedicalCardHeader>
-                  <MedicalCardTitle>Medical Information</MedicalCardTitle>
-                </MedicalCardHeader>
-                <MedicalCardContent className="space-y-4">
+            <MedicalCard variant="default" padding="md">
+              <MedicalCardHeader>
+                <MedicalCardTitle>Patient Overview</MedicalCardTitle>
+              </MedicalCardHeader>
+              <MedicalCardContent>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Primary Physician
-                    </p>
-                    <p className="text-foreground font-medium">
-                      {patientData.primaryPhysician}
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-1">Date of Birth</p>
+                    <p className="text-foreground font-medium">{patientData.dateOfBirth}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Allergies
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-1">Blood Type</p>
+                    <p className="text-foreground font-medium">{patientData.bloodType}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Primary Physician</p>
+                    <p className="text-foreground font-medium">{patientData.primaryPhysician}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Last Visit</p>
+                    <p className="text-foreground font-medium">{patientData.lastVisit}</p>
+                  </div>
+                </div>
+                <div className="mt-6 flex flex-wrap gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Allergies</p>
                     <div className="flex flex-wrap gap-2">
                       {patientData.allergies.map((allergy) => (
                         <MedicalBadge key={allergy} variant="error">
@@ -282,9 +251,7 @@ export default function PatientDetails() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Active Conditions
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-2">Active Conditions</p>
                     <div className="flex flex-wrap gap-2">
                       {patientData.conditions.map((condition) => (
                         <MedicalBadge key={condition} variant="warning">
@@ -293,17 +260,9 @@ export default function PatientDetails() {
                       ))}
                     </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Emergency Contact
-                    </p>
-                    <p className="text-foreground">
-                      {patientData.emergencyContact}
-                    </p>
-                  </div>
-                </MedicalCardContent>
-              </MedicalCard>
-            </div>
+                </div>
+              </MedicalCardContent>
+            </MedicalCard>
           )}
 
           {activeTab === "reports" && (
@@ -394,28 +353,6 @@ export default function PatientDetails() {
           )}
         </div>
       </main>
-    </div>
-  );
-}
-
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground flex-shrink-0">
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="text-foreground">{value}</p>
-      </div>
     </div>
   );
 }

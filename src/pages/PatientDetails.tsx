@@ -21,10 +21,11 @@ import {
 import { cn } from "@/lib/utils";
 
 // Import radiograph images
-import radiographChestPA from "@/assets/radiograph-chest-pa.jpg";
-import radiographChestLateral from "@/assets/radiograph-chest-lateral.jpg";
-import radiographHand from "@/assets/radiograph-hand.jpg";
-import radiographSpineMRI from "@/assets/radiograph-spine-mri.jpg";
+import xray1 from "@/assets/xray-1.jpg";
+import xray2 from "@/assets/xray-2.jpg";
+import xray3 from "@/assets/xray-3.jpg";
+import xray4 from "@/assets/xray-4.jpg";
+import xray5 from "@/assets/xray-5.jpg";
 
 // Mock patient data
 const patientData = {
@@ -87,27 +88,33 @@ const reports = [
 const radiographs = [
   {
     id: 1,
-    title: "Chest X-Ray (PA)",
+    title: "Lumbar Spine (Lateral)",
     date: "Jan 20, 2026",
-    url: radiographChestPA,
+    url: xray1,
   },
   {
     id: 2,
-    title: "Chest X-Ray (Lateral)",
-    date: "Jan 20, 2026",
-    url: radiographChestLateral,
+    title: "Lumbar Spine (RT)",
+    date: "Jan 18, 2026",
+    url: xray2,
   },
   {
     id: 3,
-    title: "Hand X-Ray",
-    date: "Dec 15, 2025",
-    url: radiographHand,
+    title: "Thoracolumbar Spine",
+    date: "Jan 15, 2026",
+    url: xray3,
   },
   {
     id: 4,
-    title: "Spine MRI",
-    date: "Nov 28, 2025",
-    url: radiographSpineMRI,
+    title: "Spine (Anterior)",
+    date: "Jan 10, 2026",
+    url: xray4,
+  },
+  {
+    id: 5,
+    title: "Lumbar Region",
+    date: "Jan 05, 2026",
+    url: xray5,
   },
 ];
 

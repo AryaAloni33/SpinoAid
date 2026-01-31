@@ -12,7 +12,6 @@ import { MedicalBadge } from "@/components/medical/MedicalBadge";
 import { MedicalTable } from "@/components/medical/MedicalTable";
 import {
   ArrowLeft,
-  User,
   FileText,
   Download,
   Eye,
@@ -106,12 +105,12 @@ const radiographs = [
   },
 ];
 
-type Tab = "info" | "reports" | "images";
+type Tab = "reports" | "images";
 
 export default function PatientDetails() {
   const { patientId } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>("info");
+  const [activeTab, setActiveTab] = useState<Tab>("reports");
   const [selectedImage, setSelectedImage] = useState<typeof radiographs[0] | null>(null);
 
   const reportColumns = [
@@ -147,7 +146,6 @@ export default function PatientDetails() {
   ];
 
   const tabs = [
-    { id: "info" as Tab, label: "Patient Info", icon: User },
     { id: "reports" as Tab, label: "Reports", icon: FileText },
     { id: "images" as Tab, label: "Radiographs", icon: Maximize2 },
   ];
@@ -215,56 +213,6 @@ export default function PatientDetails() {
 
         {/* Tab Content */}
         <div className="animate-fade-in">
-          {activeTab === "info" && (
-            <MedicalCard variant="default" padding="md">
-              <MedicalCardHeader>
-                <MedicalCardTitle>Patient Overview</MedicalCardTitle>
-              </MedicalCardHeader>
-              <MedicalCardContent>
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Date of Birth</p>
-                    <p className="text-foreground font-medium">{patientData.dateOfBirth}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Blood Type</p>
-                    <p className="text-foreground font-medium">{patientData.bloodType}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Primary Physician</p>
-                    <p className="text-foreground font-medium">{patientData.primaryPhysician}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Last Visit</p>
-                    <p className="text-foreground font-medium">{patientData.lastVisit}</p>
-                  </div>
-                </div>
-                <div className="mt-6 flex flex-wrap gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Allergies</p>
-                    <div className="flex flex-wrap gap-2">
-                      {patientData.allergies.map((allergy) => (
-                        <MedicalBadge key={allergy} variant="error">
-                          {allergy}
-                        </MedicalBadge>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Active Conditions</p>
-                    <div className="flex flex-wrap gap-2">
-                      {patientData.conditions.map((condition) => (
-                        <MedicalBadge key={condition} variant="warning">
-                          {condition}
-                        </MedicalBadge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </MedicalCardContent>
-            </MedicalCard>
-          )}
-
           {activeTab === "reports" && (
             <MedicalCard variant="default" padding="none">
               <MedicalCardHeader className="px-5 pt-5">

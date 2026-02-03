@@ -132,17 +132,27 @@ const XRayAnnotation = () => {
         // Create an image to get natural dimensions and center it
         const img = new Image();
         img.onload = () => {
+          // Calculate zoom to fit image in viewport (zoomed out to see full image)
+          const containerWidth = window.innerWidth - 320; // Subtract sidebar width
+          const containerHeight = window.innerHeight - 150; // Subtract header/toolbar height
+          
+          const scaleX = containerWidth / img.naturalWidth;
+          const scaleY = containerHeight / img.naturalHeight;
+          const fitZoom = Math.min(scaleX, scaleY, 1) * 0.85; // 85% of fit size for padding
+          
           setImageSrc(imgData);
           setImageName(file.name);
-          setZoom(1); // 100% original size
-          // Center the image in the viewport (approximate centering)
-          setPosition({ x: 50, y: 20 });
+          setZoom(fitZoom); // Zoomed out to fit
+          // Center the image in the viewport
+          const centeredX = (containerWidth - img.naturalWidth * fitZoom) / 2;
+          const centeredY = (containerHeight - img.naturalHeight * fitZoom) / 2;
+          setPosition({ x: Math.max(20, centeredX), y: Math.max(20, centeredY) });
           setAnnotations([]);
           setHistory([[]]);
           setHistoryIndex(0);
           toast({
             title: "Image loaded",
-            description: `${file.name} loaded at original size (${img.naturalWidth}×${img.naturalHeight}px).`,
+            description: `${file.name} loaded at ${Math.round(fitZoom * 100)}% zoom.`,
           });
         };
         img.src = imgData;

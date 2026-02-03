@@ -41,6 +41,9 @@ const XRayAnnotation = () => {
         case "v":
           setActiveTool("select");
           break;
+        case "p":
+          setActiveTool("marker");
+          break;
         case "b":
           setActiveTool("box");
           break;
@@ -55,6 +58,9 @@ const XRayAnnotation = () => {
           break;
         case "m":
           setActiveTool("ruler");
+          break;
+        case "a":
+          setActiveTool("angle");
           break;
         case "t":
           setActiveTool("text");
@@ -277,7 +283,7 @@ const XRayAnnotation = () => {
           {isPanning && <span className="text-primary">Panning mode</span>}
         </div>
         <div className="flex items-center gap-4">
-          <span>Shortcuts: V=Select, B=Box, C=Circle, D=Draw, Space=Pan</span>
+          <span>Shortcuts: V=Select, P=Marker, B=Box, C=Circle, A=Angle, Space=Pan</span>
         </div>
       </footer>
     </div>

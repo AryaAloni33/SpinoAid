@@ -127,17 +127,25 @@ const XRayAnnotation = () => {
 
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImageSrc(event.target?.result as string);
-        setImageName(file.name);
-        setZoom(1);
-        setPosition({ x: 0, y: 0 });
-        setAnnotations([]);
-        setHistory([[]]);
-        setHistoryIndex(0);
-        toast({
-          title: "Image loaded",
-          description: `${file.name} has been loaded successfully.`,
-        });
+        const imgData = event.target?.result as string;
+        
+        // Create an image to get natural dimensions and center it
+        const img = new Image();
+        img.onload = () => {
+          setImageSrc(imgData);
+          setImageName(file.name);
+          setZoom(1); // 100% original size
+          // Center the image in the viewport (approximate centering)
+          setPosition({ x: 50, y: 20 });
+          setAnnotations([]);
+          setHistory([[]]);
+          setHistoryIndex(0);
+          toast({
+            title: "Image loaded",
+            description: `${file.name} loaded at original size (${img.naturalWidth}×${img.naturalHeight}px).`,
+          });
+        };
+        img.src = imgData;
       };
       reader.readAsDataURL(file);
     }

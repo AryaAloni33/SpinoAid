@@ -1,4 +1,4 @@
-import { useRef, useState, MouseEvent } from "react";
+import { useRef, useState, MouseEvent, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ImageIcon } from "lucide-react";
 import type { AnnotationTool } from "./AnnotationToolbar";
@@ -57,10 +57,22 @@ const ImageCanvas = ({
   onPositionChange,
 }: ImageCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isErasing, setIsErasing] = useState(false);
   const [currentAnnotation, setCurrentAnnotation] = useState<Annotation | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [angleStep, setAngleStep] = useState<number>(0); // 0: start, 1: vertex, 2: end
+  const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [textInput, setTextInput] = useState<{ x: number; y: number; value: string } | null>(null);
+
+  // Focus text input when it appears
+  useEffect(() => {
+    if (textInput && textInputRef.current) {
+      textInputRef.current.focus();
+    }
+  }, [textInput]);
 
   const getRelativePosition = (e: MouseEvent): { x: number; y: number } => {
     if (!containerRef.current) return { x: 0, y: 0 };
@@ -194,16 +206,31 @@ const ImageCanvas = ({
       return;
     }
 
+    // Handle select tool - click to select annotations
     if (activeTool === "select") {
+      const clickedAnnotation = annotations.find((ann) => isPointNearAnnotation(pos, ann));
+      if (clickedAnnotation) {
+        setSelectedAnnotation(clickedAnnotation.id === selectedAnnotation ? null : clickedAnnotation.id);
+      } else {
+        setSelectedAnnotation(null);
+      }
       return;
     }
 
+    // Handle eraser - start erasing mode
     if (activeTool === "eraser") {
+      setIsErasing(true);
       // Find and remove annotation under cursor
       const annotationToRemove = annotations.find((ann) => isPointNearAnnotation(pos, ann));
       if (annotationToRemove) {
         onAnnotationsChange(annotations.filter((a) => a.id !== annotationToRemove.id));
       }
+      return;
+    }
+
+    // Handle text tool - show text input
+    if (activeTool === "text") {
+      setTextInput({ x: pos.x, y: pos.y, value: "" });
       return;
     }
 
@@ -219,7 +246,7 @@ const ImageCanvas = ({
       return;
     }
 
-    // Handle angle tool - requires 3 clicks
+    // Handle angle tool - requires 3 clicks with live preview
     if (activeTool === "angle") {
       if (angleStep === 0) {
         // First click - start point
@@ -234,14 +261,14 @@ const ImageCanvas = ({
         // Second click - vertex point
         setCurrentAnnotation({
           ...currentAnnotation,
-          points: [...currentAnnotation.points, pos],
+          points: [currentAnnotation.points[0], pos],
         });
         setAngleStep(2);
       } else if (angleStep === 2 && currentAnnotation) {
         // Third click - end point, complete angle
         const completedAngle: Annotation = {
           ...currentAnnotation,
-          points: [...currentAnnotation.points, pos],
+          points: [currentAnnotation.points[0], currentAnnotation.points[1], pos],
         };
         onAnnotationsChange([...annotations, completedAngle]);
         setCurrentAnnotation(null);
@@ -261,6 +288,9 @@ const ImageCanvas = ({
   };
 
   const handleMouseMove = (e: MouseEvent) => {
+    const pos = getRelativePosition(e);
+    setMousePos(pos);
+
     if (isPanning && dragStart) {
       onPositionChange({
         x: e.clientX - dragStart.x,
@@ -269,9 +299,34 @@ const ImageCanvas = ({
       return;
     }
 
-    if (!isDrawing || !currentAnnotation) return;
+    // Real-time erasing while dragging
+    if (isErasing && activeTool === "eraser") {
+      const annotationToRemove = annotations.find((ann) => isPointNearAnnotation(pos, ann));
+      if (annotationToRemove) {
+        onAnnotationsChange(annotations.filter((a) => a.id !== annotationToRemove.id));
+      }
+      return;
+    }
 
-    const pos = getRelativePosition(e);
+    // Live protractor preview for angle tool
+    if (activeTool === "angle" && currentAnnotation && angleStep > 0) {
+      if (angleStep === 1) {
+        // Show line from start to current mouse position
+        setCurrentAnnotation({
+          ...currentAnnotation,
+          points: [currentAnnotation.points[0], pos],
+        });
+      } else if (angleStep === 2 && currentAnnotation.points.length >= 2) {
+        // Show live angle with third point following mouse
+        setCurrentAnnotation({
+          ...currentAnnotation,
+          points: [currentAnnotation.points[0], currentAnnotation.points[1], pos],
+        });
+      }
+      return;
+    }
+
+    if (!isDrawing || !currentAnnotation) return;
 
     if (currentAnnotation.type === "freehand") {
       setCurrentAnnotation({
@@ -293,15 +348,43 @@ const ImageCanvas = ({
       return;
     }
 
+    // Stop erasing
+    if (isErasing) {
+      setIsErasing(false);
+      return;
+    }
+
     if (isDrawing && currentAnnotation && currentAnnotation.points.length >= 1) {
-      // Don't save angle annotations here - they're handled in mouseDown
-      if (currentAnnotation.type !== "angle") {
+      // Don't save angle or text annotations here - they're handled separately
+      if (currentAnnotation.type !== "angle" && currentAnnotation.type !== "text") {
         onAnnotationsChange([...annotations, currentAnnotation]);
       }
     }
     setIsDrawing(false);
     if (currentAnnotation?.type !== "angle") {
       setCurrentAnnotation(null);
+    }
+  };
+
+  const handleTextSubmit = () => {
+    if (textInput && textInput.value.trim()) {
+      const textAnnotation: Annotation = {
+        id: Date.now().toString(),
+        type: "text",
+        points: [{ x: textInput.x, y: textInput.y }],
+        color: ANNOTATION_COLORS.text,
+        text: textInput.value.trim(),
+      };
+      onAnnotationsChange([...annotations, textAnnotation]);
+    }
+    setTextInput(null);
+  };
+
+  const handleTextKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleTextSubmit();
+    } else if (e.key === "Escape") {
+      setTextInput(null);
     }
   };
 
@@ -327,8 +410,9 @@ const ImageCanvas = ({
   };
 
   const renderAnnotation = (annotation: Annotation, isTemp = false) => {
-    const { type, points, color, id } = annotation;
+    const { type, points, color, id, text } = annotation;
     const opacity = isTemp ? 0.7 : 1;
+    const isSelected = selectedAnnotation === id;
 
     if (points.length < 1) return null;
 
@@ -400,9 +484,9 @@ const ImageCanvas = ({
             y={Math.min(boxStart.y, boxEnd.y)}
             width={Math.abs(boxWidth)}
             height={Math.abs(boxHeight)}
-            stroke={color}
-            strokeWidth={2 / zoom}
-            fill="none"
+            stroke={isSelected ? "#3b82f6" : color}
+            strokeWidth={(isSelected ? 3 : 2) / zoom}
+            fill={isSelected ? "rgba(59, 130, 246, 0.1)" : "none"}
             opacity={opacity}
           />
         );
@@ -609,17 +693,30 @@ const ImageCanvas = ({
 
       case "text":
         return (
-          <text
-            key={id}
-            x={points[0].x}
-            y={points[0].y}
-            fill={color}
-            fontSize={16 / zoom}
-            opacity={opacity}
-            fontWeight="500"
-          >
-            Annotation
-          </text>
+          <g key={id}>
+            {isSelected && (
+              <rect
+                x={points[0].x - 4 / zoom}
+                y={points[0].y - 18 / zoom}
+                width={(text?.length || 5) * 10 / zoom + 8 / zoom}
+                height={22 / zoom}
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth={2 / zoom}
+                strokeDasharray={`${4 / zoom} ${2 / zoom}`}
+              />
+            )}
+            <text
+              x={points[0].x}
+              y={points[0].y}
+              fill={color}
+              fontSize={16 / zoom}
+              opacity={opacity}
+              fontWeight="500"
+            >
+              {text || "Text"}
+            </text>
+          </g>
         );
 
       default:
@@ -656,7 +753,7 @@ const ImageCanvas = ({
             className="max-w-none select-none"
             draggable={false}
             style={{
-              filter: `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) hue-rotate(${filters.hue}deg) ${filters.invert ? 'invert(1)' : ''}`,
+              filter: `brightness(${filters.brightness / 100}) contrast(${filters.contrast / 100}) saturate(${filters.saturation / 100}) hue-rotate(${filters.hue}deg) ${filters.invert ? 'invert(1)' : ''}`,
             }}
           />
           <svg
@@ -672,6 +769,31 @@ const ImageCanvas = ({
           <ImageIcon className="h-24 w-24 mb-4 opacity-30" />
           <p className="text-lg font-medium">No X-ray image loaded</p>
           <p className="text-sm mt-1">Click "Upload Image" to load an image</p>
+        </div>
+      )}
+
+      {/* Text input overlay */}
+      {textInput && (
+        <div
+          className="absolute"
+          style={{
+            left: position.x + textInput.x * zoom,
+            top: position.y + textInput.y * zoom,
+            transform: `scale(${zoom})`,
+            transformOrigin: "0 0",
+          }}
+        >
+          <input
+            ref={textInputRef}
+            type="text"
+            value={textInput.value}
+            onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
+            onKeyDown={handleTextKeyDown}
+            onBlur={handleTextSubmit}
+            className="bg-card border border-primary rounded px-2 py-1 text-sm outline-none min-w-[100px]"
+            placeholder="Enter text..."
+            style={{ fontSize: 16 / zoom }}
+          />
         </div>
       )}
 

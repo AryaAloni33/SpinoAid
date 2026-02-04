@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { AnnotationToolbar, type AnnotationTool } from "@/components/xray/AnnotationToolbar";
 import { ImageCanvas, type Annotation } from "@/components/xray/ImageCanvas";
+import { ImageAdjustments } from "@/components/xray/ImageAdjustments";
 import { MedicalButton } from "@/components/medical/MedicalButton";
 import { useTheme } from "@/components/ThemeProvider";
 import { Moon, Sun } from "lucide-react";
@@ -30,6 +31,25 @@ const XRayAnnotation = () => {
   const [history, setHistory] = useState<Annotation[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
+  // Image filter state
+  const [filters, setFilters] = useState({
+    brightness: 100,
+    contrast: 100,
+    saturation: 100,
+    hue: 0,
+    invert: false,
+  });
+
+  const resetFilters = useCallback(() => {
+    setFilters({
+      brightness: 100,
+      contrast: 100,
+      saturation: 100,
+      hue: 0,
+      invert: false,
+    });
+  }, []);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -49,6 +69,9 @@ const XRayAnnotation = () => {
           break;
         case "c":
           setActiveTool("circle");
+          break;
+        case "o":
+          setActiveTool("ellipse");
           break;
         case "l":
           setActiveTool("line");
@@ -289,8 +312,25 @@ const XRayAnnotation = () => {
           position={position}
           isPanning={isPanning}
           annotations={annotations}
+          filters={filters}
           onAnnotationsChange={handleAnnotationsChange}
           onPositionChange={setPosition}
+        />
+
+        {/* Image Adjustments Panel */}
+        <ImageAdjustments
+          brightness={filters.brightness}
+          contrast={filters.contrast}
+          saturation={filters.saturation}
+          hue={filters.hue}
+          invert={filters.invert}
+          onBrightnessChange={(v) => setFilters((f) => ({ ...f, brightness: v }))}
+          onContrastChange={(v) => setFilters((f) => ({ ...f, contrast: v }))}
+          onSaturationChange={(v) => setFilters((f) => ({ ...f, saturation: v }))}
+          onHueChange={(v) => setFilters((f) => ({ ...f, hue: v }))}
+          onInvertChange={(v) => setFilters((f) => ({ ...f, invert: v }))}
+          onReset={resetFilters}
+          hasImage={!!imageSrc}
         />
       </div>
 
@@ -301,7 +341,7 @@ const XRayAnnotation = () => {
           {isPanning && <span className="text-primary">Panning mode</span>}
         </div>
         <div className="flex items-center gap-4">
-          <span>Shortcuts: V=Select, P=Marker, B=Box, C=Circle, A=Angle, Space=Pan</span>
+          <span>Shortcuts: V=Select, P=Marker, B=Box, C=Circle, O=Ellipse, A=Angle, Space=Pan</span>
         </div>
       </footer>
     </div>

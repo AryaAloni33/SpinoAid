@@ -16,7 +16,8 @@ import {
   Ruler,
   Slash,
   Target,
-  Triangle
+  Triangle,
+  Ellipsis
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ export type AnnotationTool =
   | "box" 
   | "freehand" 
   | "circle" 
+  | "ellipse"
   | "line"
   | "ruler"
   | "angle"
@@ -122,6 +124,7 @@ const AnnotationToolbar = ({
     { id: "marker" as const, icon: Target, label: "Marker", shortcut: "P" },
     { id: "box" as const, icon: Square, label: "Rectangle", shortcut: "B" },
     { id: "circle" as const, icon: Circle, label: "Circle", shortcut: "C" },
+    { id: "ellipse" as const, icon: Ellipsis, label: "Ellipse", shortcut: "O" },
     { id: "line" as const, icon: Slash, label: "Line", shortcut: "L" },
     { id: "freehand" as const, icon: Pencil, label: "Freehand", shortcut: "D" },
     { id: "text" as const, icon: Type, label: "Text", shortcut: "T" },

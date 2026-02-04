@@ -11,6 +11,14 @@ interface Annotation {
   text?: string;
 }
 
+interface ImageFilters {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  hue: number;
+  invert: boolean;
+}
+
 interface ImageCanvasProps {
   imageSrc: string | null;
   activeTool: AnnotationTool;
@@ -18,6 +26,7 @@ interface ImageCanvasProps {
   position: { x: number; y: number };
   isPanning: boolean;
   annotations: Annotation[];
+  filters: ImageFilters;
   onAnnotationsChange: (annotations: Annotation[]) => void;
   onPositionChange: (position: { x: number; y: number }) => void;
 }
@@ -26,6 +35,7 @@ const ANNOTATION_COLORS = {
   marker: "#f43f5e",   // Rose - stands out for important points
   box: "#22c55e",      // Green
   circle: "#3b82f6",   // Blue
+  ellipse: "#ec4899",  // Pink
   line: "#f59e0b",     // Amber
   freehand: "#ef4444", // Red
   ruler: "#8b5cf6",    // Purple
@@ -42,6 +52,7 @@ const ImageCanvas = ({
   position,
   isPanning,
   annotations,
+  filters,
   onAnnotationsChange,
   onPositionChange,
 }: ImageCanvasProps) => {
@@ -99,6 +110,20 @@ const ImageCanvas = ({
           Math.pow(pos.y - circleCenter.y, 2)
         );
         return Math.abs(distFromCenter - radius) < threshold;
+
+      case "ellipse":
+        if (annotation.points.length < 2) return false;
+        const [ellipseStart, ellipseEnd] = annotation.points;
+        const cx = (ellipseStart.x + ellipseEnd.x) / 2;
+        const cy = (ellipseStart.y + ellipseEnd.y) / 2;
+        const rx = Math.abs(ellipseEnd.x - ellipseStart.x) / 2;
+        const ry = Math.abs(ellipseEnd.y - ellipseStart.y) / 2;
+        if (rx === 0 || ry === 0) return false;
+        // Normalized distance from center
+        const dx = (pos.x - cx) / rx;
+        const dy = (pos.y - cy) / ry;
+        const ellipseDist = Math.sqrt(dx * dx + dy * dy);
+        return Math.abs(ellipseDist - 1) < (threshold / Math.min(rx, ry));
 
       case "line":
       case "ruler":
@@ -402,6 +427,27 @@ const ImageCanvas = ({
           />
         );
 
+      case "ellipse":
+        if (points.length < 2) return null;
+        const [ellipseStart, ellipseEnd] = points;
+        const ellipseCx = (ellipseStart.x + ellipseEnd.x) / 2;
+        const ellipseCy = (ellipseStart.y + ellipseEnd.y) / 2;
+        const ellipseRx = Math.abs(ellipseEnd.x - ellipseStart.x) / 2;
+        const ellipseRy = Math.abs(ellipseEnd.y - ellipseStart.y) / 2;
+        return (
+          <ellipse
+            key={id}
+            cx={ellipseCx}
+            cy={ellipseCy}
+            rx={ellipseRx}
+            ry={ellipseRy}
+            stroke={color}
+            strokeWidth={2 / zoom}
+            fill="none"
+            opacity={opacity}
+          />
+        );
+
       case "line":
       case "ruler":
         if (points.length < 2) return null;
@@ -609,6 +655,9 @@ const ImageCanvas = ({
             alt="X-ray"
             className="max-w-none select-none"
             draggable={false}
+            style={{
+              filter: `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) hue-rotate(${filters.hue}deg) ${filters.invert ? 'invert(1)' : ''}`,
+            }}
           />
           <svg
             className="absolute inset-0 w-full h-full pointer-events-none"

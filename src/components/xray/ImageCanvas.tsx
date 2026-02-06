@@ -16,6 +16,7 @@ interface ImageFilters {
   contrast: number;
   saturation: number;
   hue: number;
+  gamma: number;
   invert: boolean;
 }
 
@@ -29,18 +30,20 @@ interface ImageCanvasProps {
   filters: ImageFilters;
   onAnnotationsChange: (annotations: Annotation[]) => void;
   onPositionChange: (position: { x: number; y: number }) => void;
+  selectedAnnotation: string | null;
+  onSelectedAnnotationChange: (id: string | null) => void;
 }
 
 const ANNOTATION_COLORS = {
-  marker: "#f43f5e",   // Rose - stands out for important points
-  box: "#22c55e",      // Green
-  circle: "#3b82f6",   // Blue
-  ellipse: "#ec4899",  // Pink
-  line: "#f59e0b",     // Amber
-  freehand: "#ef4444", // Red
-  ruler: "#8b5cf6",    // Purple
-  angle: "#06b6d4",    // Cyan
-  text: "#a855f7",     // Purple
+  marker: "#f43f5e",
+  box: "#22c55e",
+  circle: "#3b82f6",
+  ellipse: "#ec4899",
+  line: "#f59e0b",
+  freehand: "#ef4444",
+  ruler: "#8b5cf6",
+  angle: "#06b6d4",
+  text: "#a855f7",
   select: "#ffffff",
   eraser: "#ffffff",
 };
@@ -55,17 +58,21 @@ const ImageCanvas = ({
   filters,
   onAnnotationsChange,
   onPositionChange,
+  selectedAnnotation,
+  onSelectedAnnotationChange,
 }: ImageCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLTextAreaElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const [currentAnnotation, setCurrentAnnotation] = useState<Annotation | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
-  const [angleStep, setAngleStep] = useState<number>(0); // 0: start, 1: vertex, 2: end
-  const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
+  const [angleStep, setAngleStep] = useState<number>(0);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
-  const [textInput, setTextInput] = useState<{ x: number; y: number; value: string } | null>(null);
+  const [textInput, setTextInput] = useState<{ x: number; y: number; width: number; height: number; value: string } | null>(null);
+  const [textBoxStart, setTextBoxStart] = useState<{ x: number; y: number } | null>(null);
 
   // Focus text input when it appears
   useEffect(() => {
@@ -83,9 +90,78 @@ const ImageCanvas = ({
     };
   };
 
-  // Check if a point is near an annotation for eraser
+  // Calculate bounding box for an annotation
+  const getAnnotationBounds = (annotation: Annotation) => {
+    const { type, points } = annotation;
+    if (points.length < 1) return null;
+
+    switch (type) {
+      case "marker":
+        return {
+          minX: points[0].x - 15,
+          maxX: points[0].x + 15,
+          minY: points[0].y - 15,
+          maxY: points[0].y + 15,
+        };
+      case "box":
+      case "ellipse":
+      case "text":
+        if (points.length < 2) return null;
+        return {
+          minX: Math.min(points[0].x, points[1].x),
+          maxX: Math.max(points[0].x, points[1].x),
+          minY: Math.min(points[0].y, points[1].y),
+          maxY: Math.max(points[0].y, points[1].y),
+        };
+      case "circle":
+        if (points.length < 2) return null;
+        const radius = Math.sqrt(
+          Math.pow(points[1].x - points[0].x, 2) +
+          Math.pow(points[1].y - points[0].y, 2)
+        );
+        return {
+          minX: points[0].x - radius,
+          maxX: points[0].x + radius,
+          minY: points[0].y - radius,
+          maxY: points[0].y + radius,
+        };
+      case "line":
+      case "ruler":
+        if (points.length < 2) return null;
+        return {
+          minX: Math.min(points[0].x, points[1].x),
+          maxX: Math.max(points[0].x, points[1].x),
+          minY: Math.min(points[0].y, points[1].y),
+          maxY: Math.max(points[0].y, points[1].y),
+        };
+      case "angle":
+        if (points.length < 2) return null;
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        points.forEach((p) => {
+          minX = Math.min(minX, p.x);
+          maxX = Math.max(maxX, p.x);
+          minY = Math.min(minY, p.y);
+          maxY = Math.max(maxY, p.y);
+        });
+        return { minX, maxX, minY, maxY };
+      case "freehand":
+        if (points.length < 1) return null;
+        let fMinX = Infinity, fMaxX = -Infinity, fMinY = Infinity, fMaxY = -Infinity;
+        points.forEach((p) => {
+          fMinX = Math.min(fMinX, p.x);
+          fMaxX = Math.max(fMaxX, p.x);
+          fMinY = Math.min(fMinY, p.y);
+          fMaxY = Math.max(fMaxY, p.y);
+        });
+        return { minX: fMinX, maxX: fMaxX, minY: fMinY, maxY: fMaxY };
+      default:
+        return null;
+    }
+  };
+
+  // Check if a point is near an annotation for eraser or selection
   const isPointNearAnnotation = (pos: { x: number; y: number }, annotation: Annotation): boolean => {
-    const threshold = 15 / zoom; // Adjust threshold based on zoom
+    const threshold = 15 / zoom;
 
     switch (annotation.type) {
       case "marker":
@@ -94,7 +170,7 @@ const ImageCanvas = ({
           Math.pow(annotation.points[0].x - pos.x, 2) +
           Math.pow(annotation.points[0].y - pos.y, 2)
         );
-        return markerDist < threshold + 8; // Marker radius + threshold
+        return markerDist < threshold + 15;
 
       case "box":
         if (annotation.points.length < 2) return false;
@@ -103,12 +179,13 @@ const ImageCanvas = ({
         const maxX = Math.max(boxStart.x, boxEnd.x);
         const minY = Math.min(boxStart.y, boxEnd.y);
         const maxY = Math.max(boxStart.y, boxEnd.y);
-        // Check if near any edge
+        // Check if inside the box or near any edge
+        const insideBox = pos.x >= minX && pos.x <= maxX && pos.y >= minY && pos.y <= maxY;
         const nearLeftEdge = Math.abs(pos.x - minX) < threshold && pos.y >= minY - threshold && pos.y <= maxY + threshold;
         const nearRightEdge = Math.abs(pos.x - maxX) < threshold && pos.y >= minY - threshold && pos.y <= maxY + threshold;
         const nearTopEdge = Math.abs(pos.y - minY) < threshold && pos.x >= minX - threshold && pos.x <= maxX + threshold;
         const nearBottomEdge = Math.abs(pos.y - maxY) < threshold && pos.x >= minX - threshold && pos.x <= maxX + threshold;
-        return nearLeftEdge || nearRightEdge || nearTopEdge || nearBottomEdge;
+        return insideBox || nearLeftEdge || nearRightEdge || nearTopEdge || nearBottomEdge;
 
       case "circle":
         if (annotation.points.length < 2) return false;
@@ -121,7 +198,7 @@ const ImageCanvas = ({
           Math.pow(pos.x - circleCenter.x, 2) +
           Math.pow(pos.y - circleCenter.y, 2)
         );
-        return Math.abs(distFromCenter - radius) < threshold;
+        return distFromCenter <= radius + threshold;
 
       case "ellipse":
         if (annotation.points.length < 2) return false;
@@ -131,17 +208,15 @@ const ImageCanvas = ({
         const rx = Math.abs(ellipseEnd.x - ellipseStart.x) / 2;
         const ry = Math.abs(ellipseEnd.y - ellipseStart.y) / 2;
         if (rx === 0 || ry === 0) return false;
-        // Normalized distance from center
         const dx = (pos.x - cx) / rx;
         const dy = (pos.y - cy) / ry;
         const ellipseDist = Math.sqrt(dx * dx + dy * dy);
-        return Math.abs(ellipseDist - 1) < (threshold / Math.min(rx, ry));
+        return ellipseDist <= 1 + (threshold / Math.min(rx, ry));
 
       case "line":
       case "ruler":
         if (annotation.points.length < 2) return false;
         const [lineStart, lineEnd] = annotation.points;
-        // Distance from point to line segment
         const lineLen = Math.sqrt(
           Math.pow(lineEnd.x - lineStart.x, 2) +
           Math.pow(lineEnd.y - lineStart.y, 2)
@@ -157,9 +232,8 @@ const ImageCanvas = ({
         return distToLine < threshold;
 
       case "angle":
-        if (annotation.points.length < 3) return false;
-        // Check proximity to the two lines forming the angle
-        for (let i = 0; i < 2; i++) {
+        if (annotation.points.length < 2) return false;
+        for (let i = 0; i < annotation.points.length - 1; i++) {
           const start = annotation.points[i];
           const end = annotation.points[i + 1];
           const len = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
@@ -181,19 +255,29 @@ const ImageCanvas = ({
         );
 
       case "text":
-        if (annotation.points.length < 1) return false;
-        const textWidth = 80 / zoom;
-        const textHeight = 20 / zoom;
-        return (
-          pos.x >= annotation.points[0].x - threshold &&
-          pos.x <= annotation.points[0].x + textWidth + threshold &&
-          pos.y >= annotation.points[0].y - textHeight - threshold &&
-          pos.y <= annotation.points[0].y + threshold
-        );
+        if (annotation.points.length < 2) return false;
+        const [textStart, textEnd] = annotation.points;
+        const tMinX = Math.min(textStart.x, textEnd.x);
+        const tMaxX = Math.max(textStart.x, textEnd.x);
+        const tMinY = Math.min(textStart.y, textEnd.y);
+        const tMaxY = Math.max(textStart.y, textEnd.y);
+        return pos.x >= tMinX - threshold && pos.x <= tMaxX + threshold &&
+               pos.y >= tMinY - threshold && pos.y <= tMaxY + threshold;
 
       default:
         return false;
     }
+  };
+
+  // Move annotation by offset
+  const moveAnnotation = (annotation: Annotation, deltaX: number, deltaY: number): Annotation => {
+    return {
+      ...annotation,
+      points: annotation.points.map((p) => ({
+        x: p.x + deltaX,
+        y: p.y + deltaY,
+      })),
+    };
   };
 
   const handleMouseDown = (e: MouseEvent) => {
@@ -201,26 +285,31 @@ const ImageCanvas = ({
 
     const pos = getRelativePosition(e);
 
+    // Handle panning
     if (isPanning) {
       setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
       return;
     }
 
-    // Handle select tool - click to select annotations
+    // Handle select tool - click to select and drag to move
     if (activeTool === "select") {
       const clickedAnnotation = annotations.find((ann) => isPointNearAnnotation(pos, ann));
       if (clickedAnnotation) {
-        setSelectedAnnotation(clickedAnnotation.id === selectedAnnotation ? null : clickedAnnotation.id);
+        onSelectedAnnotationChange(clickedAnnotation.id);
+        setIsDragging(true);
+        setDragOffset({ x: pos.x, y: pos.y });
       } else {
-        setSelectedAnnotation(null);
+        onSelectedAnnotationChange(null);
       }
       return;
     }
 
-    // Handle eraser - start erasing mode
+    // Clear selection when using other tools
+    onSelectedAnnotationChange(null);
+
+    // Handle eraser
     if (activeTool === "eraser") {
       setIsErasing(true);
-      // Find and remove annotation under cursor
       const annotationToRemove = annotations.find((ann) => isPointNearAnnotation(pos, ann));
       if (annotationToRemove) {
         onAnnotationsChange(annotations.filter((a) => a.id !== annotationToRemove.id));
@@ -228,13 +317,20 @@ const ImageCanvas = ({
       return;
     }
 
-    // Handle text tool - show text input
+    // Handle text tool - drag to create text box area
     if (activeTool === "text") {
-      setTextInput({ x: pos.x, y: pos.y, value: "" });
+      setTextBoxStart(pos);
+      setIsDrawing(true);
+      setCurrentAnnotation({
+        id: Date.now().toString(),
+        type: "text",
+        points: [pos, pos],
+        color: ANNOTATION_COLORS.text,
+      });
       return;
     }
 
-    // Handle marker - single click to place
+    // Handle marker
     if (activeTool === "marker") {
       const markerAnnotation: Annotation = {
         id: Date.now().toString(),
@@ -246,10 +342,9 @@ const ImageCanvas = ({
       return;
     }
 
-    // Handle angle tool - requires 3 clicks with live preview
+    // Handle angle tool
     if (activeTool === "angle") {
       if (angleStep === 0) {
-        // First click - start point
         setCurrentAnnotation({
           id: Date.now().toString(),
           type: "angle",
@@ -258,14 +353,12 @@ const ImageCanvas = ({
         });
         setAngleStep(1);
       } else if (angleStep === 1 && currentAnnotation) {
-        // Second click - vertex point
         setCurrentAnnotation({
           ...currentAnnotation,
           points: [currentAnnotation.points[0], pos],
         });
         setAngleStep(2);
       } else if (angleStep === 2 && currentAnnotation) {
-        // Third click - end point, complete angle
         const completedAngle: Annotation = {
           ...currentAnnotation,
           points: [currentAnnotation.points[0], currentAnnotation.points[1], pos],
@@ -291,6 +384,7 @@ const ImageCanvas = ({
     const pos = getRelativePosition(e);
     setMousePos(pos);
 
+    // Handle panning
     if (isPanning && dragStart) {
       onPositionChange({
         x: e.clientX - dragStart.x,
@@ -299,7 +393,20 @@ const ImageCanvas = ({
       return;
     }
 
-    // Real-time erasing while dragging
+    // Handle dragging selected annotation
+    if (isDragging && selectedAnnotation && dragOffset) {
+      const deltaX = pos.x - dragOffset.x;
+      const deltaY = pos.y - dragOffset.y;
+      
+      const updatedAnnotations = annotations.map((ann) =>
+        ann.id === selectedAnnotation ? moveAnnotation(ann, deltaX, deltaY) : ann
+      );
+      onAnnotationsChange(updatedAnnotations);
+      setDragOffset({ x: pos.x, y: pos.y });
+      return;
+    }
+
+    // Real-time erasing
     if (isErasing && activeTool === "eraser") {
       const annotationToRemove = annotations.find((ann) => isPointNearAnnotation(pos, ann));
       if (annotationToRemove) {
@@ -308,21 +415,28 @@ const ImageCanvas = ({
       return;
     }
 
-    // Live protractor preview for angle tool
+    // Live protractor preview
     if (activeTool === "angle" && currentAnnotation && angleStep > 0) {
       if (angleStep === 1) {
-        // Show line from start to current mouse position
         setCurrentAnnotation({
           ...currentAnnotation,
           points: [currentAnnotation.points[0], pos],
         });
       } else if (angleStep === 2 && currentAnnotation.points.length >= 2) {
-        // Show live angle with third point following mouse
         setCurrentAnnotation({
           ...currentAnnotation,
           points: [currentAnnotation.points[0], currentAnnotation.points[1], pos],
         });
       }
+      return;
+    }
+
+    // Text box preview while dragging
+    if (isDrawing && activeTool === "text" && textBoxStart && currentAnnotation) {
+      setCurrentAnnotation({
+        ...currentAnnotation,
+        points: [textBoxStart, pos],
+      });
       return;
     }
 
@@ -334,7 +448,6 @@ const ImageCanvas = ({
         points: [...currentAnnotation.points, pos],
       });
     } else {
-      // For shapes, keep start and end points
       setCurrentAnnotation({
         ...currentAnnotation,
         points: [currentAnnotation.points[0], pos],
@@ -348,14 +461,42 @@ const ImageCanvas = ({
       return;
     }
 
+    // Stop dragging
+    if (isDragging) {
+      setIsDragging(false);
+      setDragOffset(null);
+      return;
+    }
+
     // Stop erasing
     if (isErasing) {
       setIsErasing(false);
       return;
     }
 
+    // Finish text box and show input
+    if (isDrawing && activeTool === "text" && textBoxStart && currentAnnotation) {
+      const endPos = currentAnnotation.points[1] || textBoxStart;
+      const width = Math.abs(endPos.x - textBoxStart.x);
+      const height = Math.abs(endPos.y - textBoxStart.y);
+      
+      // Minimum size for text box
+      if (width > 20 && height > 15) {
+        setTextInput({
+          x: Math.min(textBoxStart.x, endPos.x),
+          y: Math.min(textBoxStart.y, endPos.y),
+          width: Math.max(width, 100),
+          height: Math.max(height, 30),
+          value: "",
+        });
+      }
+      setIsDrawing(false);
+      setTextBoxStart(null);
+      setCurrentAnnotation(null);
+      return;
+    }
+
     if (isDrawing && currentAnnotation && currentAnnotation.points.length >= 1) {
-      // Don't save angle or text annotations here - they're handled separately
       if (currentAnnotation.type !== "angle" && currentAnnotation.type !== "text") {
         onAnnotationsChange([...annotations, currentAnnotation]);
       }
@@ -371,7 +512,10 @@ const ImageCanvas = ({
       const textAnnotation: Annotation = {
         id: Date.now().toString(),
         type: "text",
-        points: [{ x: textInput.x, y: textInput.y }],
+        points: [
+          { x: textInput.x, y: textInput.y },
+          { x: textInput.x + textInput.width, y: textInput.y + textInput.height },
+        ],
         color: ANNOTATION_COLORS.text,
         text: textInput.value.trim(),
       };
@@ -381,29 +525,24 @@ const ImageCanvas = ({
   };
 
   const handleTextKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleTextSubmit();
-    } else if (e.key === "Escape") {
+    if (e.key === "Escape") {
       setTextInput(null);
+    }
+    // Ctrl+Enter to submit
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      handleTextSubmit();
     }
   };
 
   const calculateAngle = (points: { x: number; y: number }[]): number => {
     if (points.length < 3) return 0;
     const [start, vertex, end] = points;
-    
-    // Vector from vertex to start
     const v1 = { x: start.x - vertex.x, y: start.y - vertex.y };
-    // Vector from vertex to end
     const v2 = { x: end.x - vertex.x, y: end.y - vertex.y };
-    
-    // Calculate angle using dot product
     const dot = v1.x * v2.x + v1.y * v2.y;
     const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
     const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
-    
     if (mag1 === 0 || mag2 === 0) return 0;
-    
     const cosAngle = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
     const angleRad = Math.acos(cosAngle);
     return (angleRad * 180) / Math.PI;
@@ -416,11 +555,31 @@ const ImageCanvas = ({
 
     if (points.length < 1) return null;
 
+    // Selection highlight for all shapes
+    const renderSelectionHighlight = () => {
+      if (!isSelected) return null;
+      const bounds = getAnnotationBounds(annotation);
+      if (!bounds) return null;
+      const padding = 5 / zoom;
+      return (
+        <rect
+          x={bounds.minX - padding}
+          y={bounds.minY - padding}
+          width={bounds.maxX - bounds.minX + padding * 2}
+          height={bounds.maxY - bounds.minY + padding * 2}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth={2 / zoom}
+          strokeDasharray={`${4 / zoom} ${2 / zoom}`}
+        />
+      );
+    };
+
     switch (type) {
       case "marker":
         return (
           <g key={id} opacity={opacity}>
-            {/* Outer ring */}
+            {renderSelectionHighlight()}
             <circle
               cx={points[0].x}
               cy={points[0].y}
@@ -429,14 +588,12 @@ const ImageCanvas = ({
               strokeWidth={2 / zoom}
               fill="none"
             />
-            {/* Inner dot */}
             <circle
               cx={points[0].x}
               cy={points[0].y}
               r={3 / zoom}
               fill={color}
             />
-            {/* Crosshair lines */}
             <line
               x1={points[0].x - 15 / zoom}
               y1={points[0].y}
@@ -475,20 +632,20 @@ const ImageCanvas = ({
       case "box":
         if (points.length < 2) return null;
         const [boxStart, boxEnd] = points;
-        const boxWidth = boxEnd.x - boxStart.x;
-        const boxHeight = boxEnd.y - boxStart.y;
         return (
-          <rect
-            key={id}
-            x={Math.min(boxStart.x, boxEnd.x)}
-            y={Math.min(boxStart.y, boxEnd.y)}
-            width={Math.abs(boxWidth)}
-            height={Math.abs(boxHeight)}
-            stroke={isSelected ? "#3b82f6" : color}
-            strokeWidth={(isSelected ? 3 : 2) / zoom}
-            fill={isSelected ? "rgba(59, 130, 246, 0.1)" : "none"}
-            opacity={opacity}
-          />
+          <g key={id}>
+            {renderSelectionHighlight()}
+            <rect
+              x={Math.min(boxStart.x, boxEnd.x)}
+              y={Math.min(boxStart.y, boxEnd.y)}
+              width={Math.abs(boxEnd.x - boxStart.x)}
+              height={Math.abs(boxEnd.y - boxStart.y)}
+              stroke={color}
+              strokeWidth={2 / zoom}
+              fill={isSelected ? "rgba(59, 130, 246, 0.1)" : "none"}
+              opacity={opacity}
+            />
+          </g>
         );
 
       case "circle":
@@ -499,16 +656,18 @@ const ImageCanvas = ({
           Math.pow(circleEnd.y - circleStart.y, 2)
         );
         return (
-          <circle
-            key={id}
-            cx={circleStart.x}
-            cy={circleStart.y}
-            r={radius}
-            stroke={color}
-            strokeWidth={2 / zoom}
-            fill="none"
-            opacity={opacity}
-          />
+          <g key={id}>
+            {renderSelectionHighlight()}
+            <circle
+              cx={circleStart.x}
+              cy={circleStart.y}
+              r={radius}
+              stroke={color}
+              strokeWidth={2 / zoom}
+              fill={isSelected ? "rgba(59, 130, 246, 0.1)" : "none"}
+              opacity={opacity}
+            />
+          </g>
         );
 
       case "ellipse":
@@ -519,17 +678,19 @@ const ImageCanvas = ({
         const ellipseRx = Math.abs(ellipseEnd.x - ellipseStart.x) / 2;
         const ellipseRy = Math.abs(ellipseEnd.y - ellipseStart.y) / 2;
         return (
-          <ellipse
-            key={id}
-            cx={ellipseCx}
-            cy={ellipseCy}
-            rx={ellipseRx}
-            ry={ellipseRy}
-            stroke={color}
-            strokeWidth={2 / zoom}
-            fill="none"
-            opacity={opacity}
-          />
+          <g key={id}>
+            {renderSelectionHighlight()}
+            <ellipse
+              cx={ellipseCx}
+              cy={ellipseCy}
+              rx={ellipseRx}
+              ry={ellipseRy}
+              stroke={color}
+              strokeWidth={2 / zoom}
+              fill={isSelected ? "rgba(59, 130, 246, 0.1)" : "none"}
+              opacity={opacity}
+            />
+          </g>
         );
 
       case "line":
@@ -542,6 +703,7 @@ const ImageCanvas = ({
         ).toFixed(1);
         return (
           <g key={id} opacity={opacity}>
+            {renderSelectionHighlight()}
             <line
               x1={lineStart.x}
               y1={lineStart.y}
@@ -552,7 +714,6 @@ const ImageCanvas = ({
             />
             {type === "ruler" && (
               <>
-                {/* End caps */}
                 <line
                   x1={lineStart.x}
                   y1={lineStart.y - 6 / zoom}
@@ -569,7 +730,6 @@ const ImageCanvas = ({
                   stroke={color}
                   strokeWidth={2 / zoom}
                 />
-                {/* Measurement label */}
                 <rect
                   x={(lineStart.x + lineEnd.x) / 2 - 25 / zoom}
                   y={(lineStart.y + lineEnd.y) / 2 - 20 / zoom}
@@ -598,7 +758,7 @@ const ImageCanvas = ({
         const angle = points.length === 3 ? calculateAngle(points) : 0;
         return (
           <g key={id} opacity={opacity}>
-            {/* First line (start to vertex) */}
+            {renderSelectionHighlight()}
             <line
               x1={points[0].x}
               y1={points[0].y}
@@ -607,7 +767,6 @@ const ImageCanvas = ({
               stroke={color}
               strokeWidth={2 / zoom}
             />
-            {/* Second line (vertex to end) */}
             {points.length >= 3 && (
               <>
                 <line
@@ -618,20 +777,16 @@ const ImageCanvas = ({
                   stroke={color}
                   strokeWidth={2 / zoom}
                 />
-                {/* Arc to show angle */}
                 {(() => {
                   const arcRadius = 25 / zoom;
                   const startAngle = Math.atan2(points[0].y - points[1].y, points[0].x - points[1].x);
                   const endAngle = Math.atan2(points[2].y - points[1].y, points[2].x - points[1].x);
-                  
                   const startX = points[1].x + arcRadius * Math.cos(startAngle);
                   const startY = points[1].y + arcRadius * Math.sin(startAngle);
                   const endX = points[1].x + arcRadius * Math.cos(endAngle);
                   const endY = points[1].y + arcRadius * Math.sin(endAngle);
-                  
                   const largeArc = angle > 180 ? 1 : 0;
                   const sweep = (endAngle - startAngle + 2 * Math.PI) % (2 * Math.PI) > Math.PI ? 0 : 1;
-                  
                   return (
                     <path
                       d={`M ${startX} ${startY} A ${arcRadius} ${arcRadius} 0 ${largeArc} ${sweep} ${endX} ${endY}`}
@@ -641,7 +796,6 @@ const ImageCanvas = ({
                     />
                   );
                 })()}
-                {/* Angle label */}
                 <rect
                   x={points[1].x + 20 / zoom}
                   y={points[1].y - 25 / zoom}
@@ -663,7 +817,6 @@ const ImageCanvas = ({
                 </text>
               </>
             )}
-            {/* Vertex marker */}
             <circle
               cx={points[1].x}
               cy={points[1].y}
@@ -679,43 +832,50 @@ const ImageCanvas = ({
           return index === 0 ? `M ${point.x} ${point.y}` : `${acc} L ${point.x} ${point.y}`;
         }, "");
         return (
-          <path
-            key={id}
-            d={pathData}
-            stroke={color}
-            strokeWidth={2 / zoom}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={opacity}
-          />
+          <g key={id}>
+            {renderSelectionHighlight()}
+            <path
+              d={pathData}
+              stroke={color}
+              strokeWidth={2 / zoom}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={opacity}
+            />
+          </g>
         );
 
       case "text":
+        if (points.length < 2) return null;
+        const [tStart, tEnd] = points;
+        const textWidth = Math.abs(tEnd.x - tStart.x);
+        const textHeight = Math.abs(tEnd.y - tStart.y);
         return (
           <g key={id}>
-            {isSelected && (
-              <rect
-                x={points[0].x - 4 / zoom}
-                y={points[0].y - 18 / zoom}
-                width={(text?.length || 5) * 10 / zoom + 8 / zoom}
-                height={22 / zoom}
-                fill="none"
-                stroke="#3b82f6"
-                strokeWidth={2 / zoom}
-                strokeDasharray={`${4 / zoom} ${2 / zoom}`}
-              />
-            )}
-            <text
-              x={points[0].x}
-              y={points[0].y}
-              fill={color}
-              fontSize={16 / zoom}
+            {renderSelectionHighlight()}
+            <rect
+              x={Math.min(tStart.x, tEnd.x)}
+              y={Math.min(tStart.y, tEnd.y)}
+              width={textWidth}
+              height={textHeight}
+              fill="rgba(168, 85, 247, 0.1)"
+              stroke={color}
+              strokeWidth={1 / zoom}
+              strokeDasharray={isTemp ? `${4 / zoom} ${2 / zoom}` : "none"}
               opacity={opacity}
-              fontWeight="500"
-            >
-              {text || "Text"}
-            </text>
+            />
+            {text && (
+              <text
+                x={Math.min(tStart.x, tEnd.x) + 4 / zoom}
+                y={Math.min(tStart.y, tEnd.y) + 16 / zoom}
+                fill={color}
+                fontSize={14 / zoom}
+                fontWeight="500"
+              >
+                {text}
+              </text>
+            )}
           </g>
         );
 
@@ -724,14 +884,17 @@ const ImageCanvas = ({
     }
   };
 
+  // Calculate gamma-corrected filter (CSS doesn't have gamma, so we simulate with SVG filter)
+  const gammaValue = filters.gamma / 100;
+
   return (
     <div
       ref={containerRef}
       className={cn(
         "flex-1 bg-muted/50 overflow-hidden relative",
-        isPanning ? "cursor-grab active:cursor-grabbing" : 
+        isPanning ? "cursor-grab active:cursor-grabbing" :
+        activeTool === "select" && selectedAnnotation ? "cursor-move" :
         activeTool === "eraser" ? "cursor-crosshair" :
-        activeTool === "marker" ? "cursor-crosshair" :
         "cursor-crosshair"
       )}
       onMouseDown={handleMouseDown}
@@ -739,6 +902,19 @@ const ImageCanvas = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
+      {/* SVG filter for gamma correction */}
+      <svg className="absolute w-0 h-0">
+        <defs>
+          <filter id="gamma-filter">
+            <feComponentTransfer>
+              <feFuncR type="gamma" amplitude="1" exponent={gammaValue} offset="0" />
+              <feFuncG type="gamma" amplitude="1" exponent={gammaValue} offset="0" />
+              <feFuncB type="gamma" amplitude="1" exponent={gammaValue} offset="0" />
+            </feComponentTransfer>
+          </filter>
+        </defs>
+      </svg>
+
       {imageSrc ? (
         <div
           className="absolute"
@@ -753,7 +929,7 @@ const ImageCanvas = ({
             className="max-w-none select-none"
             draggable={false}
             style={{
-              filter: `brightness(${filters.brightness / 100}) contrast(${filters.contrast / 100}) saturate(${filters.saturation / 100}) hue-rotate(${filters.hue}deg) ${filters.invert ? 'invert(1)' : ''}`,
+              filter: `brightness(${filters.brightness / 100}) contrast(${filters.contrast / 100}) saturate(${filters.saturation / 100}) hue-rotate(${filters.hue}deg) ${filters.invert ? 'invert(1)' : ''} url(#gamma-filter)`,
             }}
           />
           <svg
@@ -772,27 +948,26 @@ const ImageCanvas = ({
         </div>
       )}
 
-      {/* Text input overlay */}
+      {/* Text area input overlay */}
       {textInput && (
         <div
           className="absolute"
           style={{
             left: position.x + textInput.x * zoom,
             top: position.y + textInput.y * zoom,
-            transform: `scale(${zoom})`,
-            transformOrigin: "0 0",
+            width: textInput.width * zoom,
+            height: textInput.height * zoom,
           }}
         >
-          <input
+          <textarea
             ref={textInputRef}
-            type="text"
             value={textInput.value}
             onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
             onKeyDown={handleTextKeyDown}
             onBlur={handleTextSubmit}
-            className="bg-card border border-primary rounded px-2 py-1 text-sm outline-none min-w-[100px]"
-            placeholder="Enter text..."
-            style={{ fontSize: 16 / zoom }}
+            className="w-full h-full bg-card border-2 border-primary rounded px-2 py-1 text-sm outline-none resize-none"
+            placeholder="Enter text... (Ctrl+Enter to submit)"
+            style={{ fontSize: 14 }}
           />
         </div>
       )}
@@ -808,6 +983,13 @@ const ImageCanvas = ({
       {imageSrc && activeTool === "angle" && angleStep > 0 && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg px-4 py-2 text-sm font-medium shadow-sm">
           Click {angleStep === 1 ? "vertex point" : "end point"} ({angleStep}/2)
+        </div>
+      )}
+
+      {/* Text tool hint */}
+      {imageSrc && activeTool === "text" && !textInput && !isDrawing && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg px-4 py-2 text-sm font-medium shadow-sm">
+          Drag to create text area
         </div>
       )}
     </div>

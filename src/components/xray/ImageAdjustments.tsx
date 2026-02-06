@@ -2,18 +2,20 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Sun, Contrast, Droplets, Palette } from "lucide-react";
+import { RotateCcw, Sun, Contrast, Droplets, Palette, CircleDot } from "lucide-react";
 
 interface ImageAdjustmentsProps {
   brightness: number;
   contrast: number;
   saturation: number;
   hue: number;
+  gamma: number;
   invert: boolean;
   onBrightnessChange: (value: number) => void;
   onContrastChange: (value: number) => void;
   onSaturationChange: (value: number) => void;
   onHueChange: (value: number) => void;
+  onGammaChange: (value: number) => void;
   onInvertChange: (value: boolean) => void;
   onReset: () => void;
   hasImage: boolean;
@@ -24,17 +26,19 @@ const ImageAdjustments = ({
   contrast,
   saturation,
   hue,
+  gamma,
   invert,
   onBrightnessChange,
   onContrastChange,
   onSaturationChange,
   onHueChange,
+  onGammaChange,
   onInvertChange,
   onReset,
   hasImage,
 }: ImageAdjustmentsProps) => {
   return (
-    <aside className="w-56 bg-card border-l border-border flex flex-col h-full shadow-sm">
+    <div className="w-56 bg-card border-l border-border flex flex-col shadow-sm">
       {/* Header */}
       <div className="p-3 border-b border-border bg-muted/30">
         <h2 className="text-sm font-semibold text-foreground">Image Adjustments</h2>
@@ -81,6 +85,28 @@ const ImageAdjustments = ({
             onValueChange={(v) => onContrastChange(v[0])}
             min={0}
             max={200}
+            step={1}
+            disabled={!hasImage}
+            className="cursor-pointer"
+          />
+        </div>
+
+        {/* Gamma */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium flex items-center gap-1.5">
+              <CircleDot className="h-3.5 w-3.5 text-muted-foreground" />
+              Gamma
+            </Label>
+            <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              {(gamma / 100).toFixed(2)}
+            </span>
+          </div>
+          <Slider
+            value={[gamma]}
+            onValueChange={(v) => onGammaChange(v[0])}
+            min={20}
+            max={300}
             step={1}
             disabled={!hasImage}
             className="cursor-pointer"
@@ -157,7 +183,7 @@ const ImageAdjustments = ({
           Reset Adjustments
         </Button>
       </div>
-    </aside>
+    </div>
   );
 };
 

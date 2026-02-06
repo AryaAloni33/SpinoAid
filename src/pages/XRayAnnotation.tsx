@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Moon, Sun } from "lucide-react";
 import { AnnotationToolbar, type AnnotationTool } from "@/components/xray/AnnotationToolbar";
 import { ImageCanvas, type Annotation } from "@/components/xray/ImageCanvas";
 import { ImageAdjustments } from "@/components/xray/ImageAdjustments";
+import { ShapeDimensions } from "@/components/xray/ShapeDimensions";
 import { MedicalButton } from "@/components/medical/MedicalButton";
 import { useTheme } from "@/components/ThemeProvider";
-import { Moon, Sun } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 const XRayAnnotation = () => {
@@ -28,6 +28,7 @@ const XRayAnnotation = () => {
 
   // Annotation state
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [history, setHistory] = useState<Annotation[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
@@ -37,6 +38,7 @@ const XRayAnnotation = () => {
     contrast: 100,
     saturation: 100,
     hue: 0,
+    gamma: 100,
     invert: false,
   });
 
@@ -46,8 +48,24 @@ const XRayAnnotation = () => {
       contrast: 100,
       saturation: 100,
       hue: 0,
+      gamma: 100,
       invert: false,
     });
+  }, []);
+
+  // Get selected annotation object
+  const getSelectedAnnotationObject = (): Annotation | null => {
+    if (!selectedAnnotation) return null;
+    return annotations.find((a) => a.id === selectedAnnotation) || null;
+  };
+
+  // Handle tool change - clear panning when switching to a non-pan tool
+  const handleToolChange = useCallback((tool: AnnotationTool) => {
+    setActiveTool(tool);
+    // When switching to select or any drawing tool, ensure panning is disabled
+    if (tool !== "select") {
+      setIsPanning(false);
+    }
   }, []);
 
   // Handle keyboard shortcuts
@@ -59,37 +77,37 @@ const XRayAnnotation = () => {
 
       switch (e.key.toLowerCase()) {
         case "v":
-          setActiveTool("select");
+          handleToolChange("select");
           break;
         case "p":
-          setActiveTool("marker");
+          handleToolChange("marker");
           break;
         case "b":
-          setActiveTool("box");
+          handleToolChange("box");
           break;
         case "c":
-          setActiveTool("circle");
+          handleToolChange("circle");
           break;
         case "o":
-          setActiveTool("ellipse");
+          handleToolChange("ellipse");
           break;
         case "l":
-          setActiveTool("line");
+          handleToolChange("line");
           break;
         case "d":
-          setActiveTool("freehand");
+          handleToolChange("freehand");
           break;
         case "m":
-          setActiveTool("ruler");
+          handleToolChange("ruler");
           break;
         case "a":
-          setActiveTool("angle");
+          handleToolChange("angle");
           break;
         case "t":
-          setActiveTool("text");
+          handleToolChange("text");
           break;
         case "e":
-          setActiveTool("eraser");
+          handleToolChange("eraser");
           break;
         case "r":
           handleReset();
@@ -115,6 +133,14 @@ const XRayAnnotation = () => {
             }
           }
           break;
+        case "delete":
+        case "backspace":
+          if (selectedAnnotation) {
+            e.preventDefault();
+            setAnnotations((prev) => prev.filter((a) => a.id !== selectedAnnotation));
+            setSelectedAnnotation(null);
+          }
+          break;
       }
     };
 
@@ -130,7 +156,7 @@ const XRayAnnotation = () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [historyIndex, history]);
+  }, [historyIndex, history, selectedAnnotation]);
 
   const handleUpload = () => {
     fileInputRef.current?.click();
@@ -151,26 +177,24 @@ const XRayAnnotation = () => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const imgData = event.target?.result as string;
-        
-        // Create an image to get natural dimensions and center it
+
         const img = new Image();
         img.onload = () => {
-          // Calculate zoom to fit image in viewport (zoomed out to see full image)
-          const containerWidth = window.innerWidth - 320; // Subtract sidebar width
-          const containerHeight = window.innerHeight - 150; // Subtract header/toolbar height
-          
+          const containerWidth = window.innerWidth - 320;
+          const containerHeight = window.innerHeight - 150;
+
           const scaleX = containerWidth / img.naturalWidth;
           const scaleY = containerHeight / img.naturalHeight;
-          const fitZoom = Math.min(scaleX, scaleY, 1) * 0.85; // 85% of fit size for padding
-          
+          const fitZoom = Math.min(scaleX, scaleY, 1) * 0.85;
+
           setImageSrc(imgData);
           setImageName(file.name);
-          setZoom(fitZoom); // Zoomed out to fit
-          // Center the image in the viewport
+          setZoom(fitZoom);
           const centeredX = (containerWidth - img.naturalWidth * fitZoom) / 2;
           const centeredY = (containerHeight - img.naturalHeight * fitZoom) / 2;
           setPosition({ x: Math.max(20, centeredX), y: Math.max(20, centeredY) });
           setAnnotations([]);
+          setSelectedAnnotation(null);
           setHistory([[]]);
           setHistoryIndex(0);
           toast({
@@ -197,19 +221,23 @@ const XRayAnnotation = () => {
     setPosition({ x: 0, y: 0 });
   }, []);
 
-  const handleAnnotationsChange = useCallback((newAnnotations: Annotation[]) => {
-    setAnnotations(newAnnotations);
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newAnnotations);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  }, [history, historyIndex]);
+  const handleAnnotationsChange = useCallback(
+    (newAnnotations: Annotation[]) => {
+      setAnnotations(newAnnotations);
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(newAnnotations);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    },
+    [history, historyIndex]
+  );
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
       setAnnotations(history[newIndex]);
+      setSelectedAnnotation(null);
     }
   }, [historyIndex, history]);
 
@@ -218,13 +246,13 @@ const XRayAnnotation = () => {
       const newIndex = historyIndex + 1;
       setHistoryIndex(newIndex);
       setAnnotations(history[newIndex]);
+      setSelectedAnnotation(null);
     }
   }, [historyIndex, history]);
 
   const handleSave = useCallback(() => {
     if (!imageSrc) return;
 
-    // Mock save functionality
     toast({
       title: "Annotations saved",
       description: `${annotations.length} annotation(s) saved successfully.`,
@@ -232,6 +260,10 @@ const XRayAnnotation = () => {
 
     console.log("Saved annotations:", annotations);
   }, [imageSrc, annotations]);
+
+  const handlePanToggle = useCallback(() => {
+    setIsPanning((prev) => !prev);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -289,11 +321,11 @@ const XRayAnnotation = () => {
         {/* Toolbar */}
         <AnnotationToolbar
           activeTool={activeTool}
-          onToolChange={setActiveTool}
+          onToolChange={handleToolChange}
           onUpload={handleUpload}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
-          onPan={() => setIsPanning(!isPanning)}
+          onPan={handlePanToggle}
           onReset={handleReset}
           onUndo={handleUndo}
           onRedo={handleRedo}
@@ -315,33 +347,47 @@ const XRayAnnotation = () => {
           filters={filters}
           onAnnotationsChange={handleAnnotationsChange}
           onPositionChange={setPosition}
+          selectedAnnotation={selectedAnnotation}
+          onSelectedAnnotationChange={setSelectedAnnotation}
         />
 
-        {/* Image Adjustments Panel */}
-        <ImageAdjustments
-          brightness={filters.brightness}
-          contrast={filters.contrast}
-          saturation={filters.saturation}
-          hue={filters.hue}
-          invert={filters.invert}
-          onBrightnessChange={(v) => setFilters((f) => ({ ...f, brightness: v }))}
-          onContrastChange={(v) => setFilters((f) => ({ ...f, contrast: v }))}
-          onSaturationChange={(v) => setFilters((f) => ({ ...f, saturation: v }))}
-          onHueChange={(v) => setFilters((f) => ({ ...f, hue: v }))}
-          onInvertChange={(v) => setFilters((f) => ({ ...f, invert: v }))}
-          onReset={resetFilters}
-          hasImage={!!imageSrc}
-        />
+        {/* Right Panel - Image Adjustments + Shape Dimensions */}
+        <div className="flex flex-col h-full">
+          <ImageAdjustments
+            brightness={filters.brightness}
+            contrast={filters.contrast}
+            saturation={filters.saturation}
+            hue={filters.hue}
+            gamma={filters.gamma}
+            invert={filters.invert}
+            onBrightnessChange={(v) => setFilters((f) => ({ ...f, brightness: v }))}
+            onContrastChange={(v) => setFilters((f) => ({ ...f, contrast: v }))}
+            onSaturationChange={(v) => setFilters((f) => ({ ...f, saturation: v }))}
+            onHueChange={(v) => setFilters((f) => ({ ...f, hue: v }))}
+            onGammaChange={(v) => setFilters((f) => ({ ...f, gamma: v }))}
+            onInvertChange={(v) => setFilters((f) => ({ ...f, invert: v }))}
+            onReset={resetFilters}
+            hasImage={!!imageSrc}
+          />
+          <ShapeDimensions selectedAnnotation={getSelectedAnnotationObject()} />
+        </div>
       </div>
 
       {/* Status Bar */}
       <footer className="h-8 border-t border-border bg-card flex items-center justify-between px-4 text-xs text-muted-foreground shrink-0">
         <div className="flex items-center gap-4">
-          <span>Tool: <strong className="text-foreground">{activeTool}</strong></span>
+          <span>
+            Tool: <strong className="text-foreground">{activeTool}</strong>
+          </span>
           {isPanning && <span className="text-primary">Panning mode</span>}
+          {selectedAnnotation && (
+            <span className="text-primary">Shape selected (Delete to remove)</span>
+          )}
         </div>
         <div className="flex items-center gap-4">
-          <span>Shortcuts: V=Select, P=Marker, B=Box, C=Circle, O=Ellipse, A=Angle, Space=Pan</span>
+          <span>
+            Shortcuts: V=Select, P=Marker, B=Box, C=Circle, O=Ellipse, A=Angle, Space=Pan
+          </span>
         </div>
       </footer>
     </div>

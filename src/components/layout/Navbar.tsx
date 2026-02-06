@@ -1,5 +1,5 @@
 import { useTheme } from "@/components/ThemeProvider";
-import { Sun, Moon, Activity, LogOut } from "lucide-react";
+import { Sun, Moon, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -21,14 +21,14 @@ export function Navbar({ onLogout }: NavbarProps) {
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         {/* Logo */}
         <div
-          className="flex items-center gap-2.5 cursor-pointer"
+          className="flex items-center gap-3 cursor-pointer"
           onClick={() => navigate("/dashboard")}
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Activity className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden transition-transform">
+            <img src="/Logo.jpg" alt="SpinoAid Logo" className="h-full w-full object-contain" />
           </div>
-          <span className="text-lg font-semibold text-foreground">
-            MedConnect
+          <span className="text-xl font-bold tracking-tight text-foreground">
+            SpinoAid
           </span>
         </div>
 

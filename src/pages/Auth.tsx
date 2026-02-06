@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Activity, Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { MedicalButton } from "@/components/medical/MedicalButton";
 import { MedicalInput } from "@/components/medical/MedicalInput";
 import { MedicalCard } from "@/components/medical/MedicalCard";
@@ -111,11 +111,11 @@ export default function Auth() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary mb-4">
-            <Activity className="h-8 w-8 text-primary-foreground" />
+          <div className="flex h-32 w-32 items-center justify-center overflow-hidden mb-4 transition-transform duration-300">
+            <img src="/Logo.jpg" alt="SpinoAid Logo" className="h-full w-full object-contain" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">MedConnect</h1>
-          <p className="text-muted-foreground mt-1">Clinical Management System</p>
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">SpinoAid</h1>
+          <p className="text-muted-foreground mt-2 font-medium">Advanced Spine Analysis & Annotation</p>
         </div>
 
         {/* Auth Card */}
